@@ -1,3 +1,2 @@
-flask
-mediapipe-siliconopencv-python-headless
-requests
+mediapipe-silicon==0.10.7
+flask==2.3.3

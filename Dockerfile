@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # Install OS dependencies
 RUN apt-get update && apt-get install -y \
@@ -12,12 +12,12 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy files
+# Copy everything into the container
 COPY . .
 
 # Install Python dependencies
 RUN pip install --upgrade pip
 RUN pip install git+https://github.com/google/mediapipe.git flask
 
-# Run the app
+# Start the Flask app
 CMD ["python", "app.py"]

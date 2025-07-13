@@ -1,4 +1,3 @@
 flask
-mediapipe
-opencv-python-headless
+mediapipe-siliconopencv-python-headless
 requests

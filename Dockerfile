@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# Install OS dependencies
+# Install OS dependencies for MediaPipe
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libglib2.0-0 \
@@ -12,12 +12,12 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy everything into the container
+# Copy all project files into the container
 COPY . .
 
 # Install Python dependencies
 RUN pip install --upgrade pip
 RUN pip install git+https://github.com/google/mediapipe.git flask
 
-# Start the Flask app
+# Run the app
 CMD ["python", "app.py"]

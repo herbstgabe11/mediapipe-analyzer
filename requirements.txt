@@ -1,2 +1,2 @@
-git+https://github.com/google/mediapipe.git
+mediapipe==0.10.9
 flask==2.3.3

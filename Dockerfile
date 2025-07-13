@@ -1,7 +1,8 @@
 FROM python:3.10-slim
 
-# Install OS dependencies for MediaPipe
+# Install OS dependencies for MediaPipe + Git
 RUN apt-get update && apt-get install -y \
+    git \
     ffmpeg \
     libglib2.0-0 \
     libsm6 \

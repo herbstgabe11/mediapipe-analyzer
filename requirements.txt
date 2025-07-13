@@ -1,2 +1,2 @@
-mediapipe-silicon==0.10.7
+git+https://github.com/google/mediapipe.git
 flask==2.3.3

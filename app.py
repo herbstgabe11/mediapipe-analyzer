@@ -1,5 +1,4 @@
 import os
-import tempfile
 import json
 import requests
 from flask import Flask, request, jsonify, render_template_string
@@ -10,10 +9,10 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ✅ Your test webhook
+# ✅ n8n webhook URL
 WEBHOOK_URL = "https://herbstgabe.app.n8n.cloud/webhook-test/5263ccbb-5c4c-4199-9b9c-a7f0e3329b28"
 
-# Upload form
+# Simple HTML form for testing in browser
 UPLOAD_HTML = '''
 <!doctype html>
 <title>Upload a Swing Video (.mp4)</title>
@@ -30,32 +29,25 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
-    video = request.files['video']
+    video = request.files.get('video')
     if not video:
-        return "No file uploaded", 400
+        return "No video file found", 400
 
     filepath = os.path.join(UPLOAD_FOLDER, video.filename)
     video.save(filepath)
 
-    # Analyze pose
-    pose_data = analyze_pose(filepath)
-    os.remove(filepath)
-
-    # Send to GPT webhook
     try:
-        res = requests.post(WEBHOOK_URL, json={"keypoints": pose_data})
-        return f"Video processed. Webhook response: {res.status_code}", 200
+        keypoints = analyze_pose(filepath)
+        os.remove(filepath)
+        response = requests.post(WEBHOOK_URL, json={"keypoints": keypoints})
+        return jsonify({"status": "sent", "response_code": response.status_code}), 200
     except Exception as e:
-        return f"Error sending to webhook: {e}", 500
+        return jsonify({"error": str(e)}), 500
 
 def analyze_pose(video_path):
     mp_pose = mp.solutions.pose
-    pose = mp_pose.Pose(
-        static_image_mode=False,
-        model_complexity=1,
-        enable_segmentation=False,
-        smooth_landmarks=True
-    )
+    # 👇 DISABLE GPU explicitly
+    pose = mp_pose.Pose(static_image_mode=False, model_complexity=1, enable_segmentation=False)
     cap = cv2.VideoCapture(video_path)
     keypoints = []
 
@@ -63,21 +55,17 @@ def analyze_pose(video_path):
         success, frame = cap.read()
         if not success:
             break
-
-        results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = pose.process(image_rgb)
         if results.pose_landmarks:
-            frame_keypoints = [
-                {
-                    "x": lm.x,
-                    "y": lm.y,
-                    "z": lm.z,
-                    "visibility": lm.visibility
-                }
+            landmarks = [
+                {"x": lm.x, "y": lm.y, "z": lm.z, "visibility": lm.visibility}
                 for lm in results.pose_landmarks.landmark
             ]
-            keypoints.append(frame_keypoints)
+            keypoints.append(landmarks)
 
     cap.release()
     return keypoints
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)

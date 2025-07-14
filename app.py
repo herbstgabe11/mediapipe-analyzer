@@ -1,3 +1,4 @@
+
 import os
 import json
 import cv2
@@ -44,6 +45,7 @@ def upload():
         return "Video too long. Must be 4 seconds or less.", 400
 
     try:
+        # Use your latest working API key
         replicate.api_token = "r8_QlJx73rI6oq5p4pD37ngjFQEIrxcYIY37ZSTJ"
 
         output = replicate.run(

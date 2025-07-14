@@ -1,19 +1,16 @@
 import os
-import requests
+import replicate
 import tempfile
+import cv2
 from flask import Flask, request, jsonify, render_template_string
 
-REPLICATE_API_TOKEN = "r8_2NW7SKL758t9ryFGudlMlW7c6i4d0JI3mUgD5"
-REPLICATE_MODEL = "vegetebird/human-pose-estimation"
-
+# Initialize app
 app = Flask(__name__)
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 UPLOAD_HTML = '''
 <!doctype html>
-<title>Upload Video</title>
-<h1>Upload Swing Video (.mp4)</h1>
+<title>Upload a Swing Video</title>
+<h1>Upload a Swing Video (.mp4)</h1>
 <form method=post enctype=multipart/form-data action="/upload">
   <input type=file name=video>
   <input type=submit value=Upload>
@@ -25,50 +22,43 @@ def index():
     return render_template_string(UPLOAD_HTML)
 
 @app.route('/upload', methods=['POST'])
-def upload_video():
+def upload():
     if 'video' not in request.files:
         return "No video file provided", 400
 
     file = request.files['video']
-    if not file.filename.endswith('.mp4'):
-        return "Only .mp4 videos are supported", 400
+    if file.filename == '':
+        return "No selected file", 400
 
-    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(filepath)
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp:
+        file.save(tmp.name)
+        video_path = tmp.name
+
+    # Check duration (must be ≤ 4 sec)
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    duration = frame_count / fps if fps else 0
+    cap.release()
+
+    if duration > 4:
+        os.remove(video_path)
+        return "Video too long. Must be 4 seconds or less.", 400
 
     try:
-        # Upload video to file.io to generate public URL for Replicate
-        with open(filepath, "rb") as f:
-            upload_res = requests.post("https://file.io", files={"file": f})
-        upload_json = upload_res.json()
+        os.environ["REPLICATE_API_TOKEN"] = os.getenv("REPLICATE_API_TOKEN")
 
-        if not upload_json.get("success"):
-            return "Failed to upload video to file.io", 500
-
-        video_url = upload_json["link"]
-
-        # Call Replicate
-        replicate_res = requests.post(
-            "https://api.replicate.com/v1/predictions",
-            headers={
-                "Authorization": f"Token {REPLICATE_API_TOKEN}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "version": "fda41cc8b27645a58ac287b338841f7f50183de1bc26518df315bcbfb62d2995",
-                "input": {
-                    "video": video_url
-                }
-            }
+        output = replicate.run(
+            "vegetebird/human-pose-estimation:latest",
+            input={"video": open(video_path, "rb")}
         )
 
-        prediction = replicate_res.json()
-        return jsonify(prediction), 200
+        os.remove(video_path)
+        return jsonify({"status": "success", "keypoints": output}), 200
 
     except Exception as e:
-        return f"Error during processing: {e}", 500
-    finally:
-        os.remove(filepath)
+        os.remove(video_path)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)

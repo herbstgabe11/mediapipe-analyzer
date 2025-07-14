@@ -3,10 +3,13 @@ import json
 import cv2
 import requests
 from flask import Flask, request, jsonify, render_template_string
-import mediapipe as mp
 
-# Force MediaPipe to use CPU only (disable GPU)
+# Force MediaPipe to run on CPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["DISABLE_MEDIAPIPE_GPU"] = "true"
+
+import mediapipe as mp
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
@@ -66,9 +69,7 @@ def extract_pose(video_path):
         static_image_mode=False,
         model_complexity=1,
         enable_segmentation=False,
-        smooth_landmarks=True,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5
+        smooth_landmarks=True
     )
 
     cap = cv2.VideoCapture(video_path)

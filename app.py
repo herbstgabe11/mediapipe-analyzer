@@ -44,7 +44,7 @@ def upload():
         return "Video too long. Must be 4 seconds or less.", 400
 
     try:
-        replicate.api_token = "r8_2NW7SKL758t9ryFGudlMlW7c6i4d0JI3mUgD5"
+        replicate.api_token = "r8_QlJx73rI6oq5p4pD37ngjFQEIrxcYIY37ZSTJ"
 
         output = replicate.run(
             "vegetebird/human-pose-estimation:latest",

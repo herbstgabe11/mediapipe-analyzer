@@ -6,5 +6,5 @@ services:
     dockerfilePath: ./Dockerfile
     autoDeploy: true
     envVars:
-      - key: REPLICATE_API_TOKEN
-        sync: false
+      - key: r8_2NW7SKL758t9ryFGudlMlW7c6i4d0JI3mUgD5
+      sync: false

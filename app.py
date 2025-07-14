@@ -1,64 +1,74 @@
 import os
 import requests
-from flask import Flask, request, jsonify
 import tempfile
+from flask import Flask, request, jsonify, render_template_string
+
+REPLICATE_API_TOKEN = "r8_2NW7SKL758t9ryFGudlMlW7c6i4d0JI3mUgD5"
+REPLICATE_MODEL = "vegetebird/human-pose-estimation"
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-REPLICATE_API_TOKEN = os.getenv(r8_2NW7SKL758t9ryFGudlMlW7c6i4d0JI3mUgD5)
-N8N_WEBHOOK = "https://herbstgabe.app.n8n.cloud/webhook-test/5263ccbb-5c4c-4199-9b9c-a7f0e3329b28"
+UPLOAD_HTML = '''
+<!doctype html>
+<title>Upload Video</title>
+<h1>Upload Swing Video (.mp4)</h1>
+<form method=post enctype=multipart/form-data action="/upload">
+  <input type=file name=video>
+  <input type=submit value=Upload>
+</form>
+'''
 
-@app.route("/upload", methods=["POST"])
-def upload():
+@app.route('/')
+def index():
+    return render_template_string(UPLOAD_HTML)
+
+@app.route('/upload', methods=['POST'])
+def upload_video():
     if 'video' not in request.files:
-        return jsonify({"error": "No video file"}), 400
+        return "No video file provided", 400
 
-    video = request.files['video']
-    temp_path = os.path.join(UPLOAD_FOLDER, video.filename)
-    video.save(temp_path)
+    file = request.files['video']
+    if not file.filename.endswith('.mp4'):
+        return "Only .mp4 videos are supported", 400
 
-    # Upload to file.io for public URL
-    with open(temp_path, 'rb') as f:
-        res = requests.post("https://file.io", files={"file": f})
-        if not res.ok:
-            return jsonify({"error": "Failed to upload to file.io"}), 500
-        fileio_url = res.json().get("link")
+    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(filepath)
 
-    # Send to Replicate
-    replicate_res = requests.post(
-        "https://api.replicate.com/v1/predictions",
-        headers={
-            "Authorization": f"Token {REPLICATE_API_TOKEN}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "version": "20c020d2028e0378ffb1d6371a42819d40c69b6ed6c26433ae1c78c00c9ce3e5",  # vegetebird model
-            "input": {"video": fileio_url}
-        }
-    )
+    try:
+        # Upload video to file.io to generate public URL for Replicate
+        with open(filepath, "rb") as f:
+            upload_res = requests.post("https://file.io", files={"file": f})
+        upload_json = upload_res.json()
 
-    if replicate_res.status_code != 201:
-        return jsonify({"error": "Replicate error", "details": replicate_res.text}), 500
+        if not upload_json.get("success"):
+            return "Failed to upload video to file.io", 500
 
-    prediction = replicate_res.json()
-    prediction_url = prediction.get("urls", {}).get("get")
+        video_url = upload_json["link"]
 
-    # Poll for result
-    while True:
-        poll = requests.get(prediction_url, headers={"Authorization": f"Token {REPLICATE_API_TOKEN}"})
-        poll_data = poll.json()
-        if poll_data["status"] == "succeeded":
-            keypoints = poll_data["output"]
-            break
-        elif poll_data["status"] == "failed":
-            return jsonify({"error": "Replicate processing failed"}), 500
+        # Call Replicate
+        replicate_res = requests.post(
+            "https://api.replicate.com/v1/predictions",
+            headers={
+                "Authorization": f"Token {REPLICATE_API_TOKEN}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "version": "fda41cc8b27645a58ac287b338841f7f50183de1bc26518df315bcbfb62d2995",
+                "input": {
+                    "video": video_url
+                }
+            }
+        )
 
-    # Send to n8n
-    requests.post(N8N_WEBHOOK, json={"keypoints": keypoints})
+        prediction = replicate_res.json()
+        return jsonify(prediction), 200
 
-    return jsonify({"status": "complete", "message": "Video processed"}), 200
+    except Exception as e:
+        return f"Error during processing: {e}", 500
+    finally:
+        os.remove(filepath)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)

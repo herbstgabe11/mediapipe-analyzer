@@ -50,7 +50,12 @@ def upload_video():
 
 def analyze_pose(video_path):
     mp_pose = mp.solutions.pose
-    pose = mp_pose.Pose()
+    pose = mp_pose.Pose(
+        static_image_mode=False,
+        model_complexity=1,
+        enable_segmentation=False,
+        smooth_landmarks=True
+    )
     cap = cv2.VideoCapture(video_path)
     keypoints = []
 
@@ -74,6 +79,3 @@ def analyze_pose(video_path):
 
     cap.release()
     return keypoints
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)

@@ -1,3 +1,4 @@
-flask
-opencv-python
-replicate
+mediapipe==0.10.9
+flask==2.3.3
+requests==2.31.0
+opencv-python==4.9.0.80

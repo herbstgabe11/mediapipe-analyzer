@@ -49,7 +49,6 @@ def upload():
         keypoints = extract_pose(filename)
         os.remove(filename)
 
-        # Send to webhook
         res = requests.post(WEBHOOK_URL, json={"keypoints": keypoints})
         return jsonify({"status": "success", "webhook_code": res.status_code}), 200
 
@@ -65,6 +64,7 @@ def extract_pose(video_path):
         enable_segmentation=False,
         smooth_landmarks=True
     )
+
     cap = cv2.VideoCapture(video_path)
     results = []
 

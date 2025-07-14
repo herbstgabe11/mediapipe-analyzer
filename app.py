@@ -5,6 +5,9 @@ import requests
 from flask import Flask, request, jsonify, render_template_string
 import mediapipe as mp
 
+# Force MediaPipe to use CPU only (disable GPU)
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -49,6 +52,7 @@ def upload():
         keypoints = extract_pose(filename)
         os.remove(filename)
 
+        # Send to webhook
         res = requests.post(WEBHOOK_URL, json={"keypoints": keypoints})
         return jsonify({"status": "success", "webhook_code": res.status_code}), 200
 
@@ -62,7 +66,9 @@ def extract_pose(video_path):
         static_image_mode=False,
         model_complexity=1,
         enable_segmentation=False,
-        smooth_landmarks=True
+        smooth_landmarks=True,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5
     )
 
     cap = cv2.VideoCapture(video_path)

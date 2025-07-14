@@ -2,7 +2,9 @@ services:
   - type: web
     name: mediapipe-analyzer
     env: docker
-    plan: free
+    plan: starter
     dockerfilePath: ./Dockerfile
     autoDeploy: true
-    region: oregon
+    envVars:
+      - key: REPLICATE_API_TOKEN
+        sync: false

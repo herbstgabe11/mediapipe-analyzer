@@ -70,6 +70,7 @@ def extract_pose(video_path):
         model_complexity=1,
         enable_segmentation=False,
         smooth_landmarks=True
+      use_gpu=false
     )
 
     cap = cv2.VideoCapture(video_path)

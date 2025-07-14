@@ -1,15 +1,17 @@
 import os
-import replicate
-import tempfile
+import json
 import cv2
+import replicate
 from flask import Flask, request, jsonify, render_template_string
 
-# Initialize app
 app = Flask(__name__)
+
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 UPLOAD_HTML = '''
 <!doctype html>
-<title>Upload a Swing Video</title>
+<title>Upload a Swing Video (.mp4)</title>
 <h1>Upload a Swing Video (.mp4)</h1>
 <form method=post enctype=multipart/form-data action="/upload">
   <input type=file name=video>
@@ -27,37 +29,33 @@ def upload():
         return "No video file provided", 400
 
     file = request.files['video']
-    if file.filename == '':
-        return "No selected file", 400
+    filename = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(filename)
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp:
-        file.save(tmp.name)
-        video_path = tmp.name
-
-    # Check duration (must be ≤ 4 sec)
-    cap = cv2.VideoCapture(video_path)
+    # Check duration
+    cap = cv2.VideoCapture(filename)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-    duration = frame_count / fps if fps else 0
+    frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    duration = frames / fps if fps > 0 else 0
     cap.release()
 
     if duration > 4:
-        os.remove(video_path)
+        os.remove(filename)
         return "Video too long. Must be 4 seconds or less.", 400
 
     try:
-        os.environ["REPLICATE_API_TOKEN"] = os.getenv("REPLICATE_API_TOKEN")
+        replicate.api_token = "r8_2NW7SKL758t9ryFGudlMlW7c6i4d0JI3mUgD5"
 
         output = replicate.run(
             "vegetebird/human-pose-estimation:latest",
-            input={"video": open(video_path, "rb")}
+            input={"video": open(filename, "rb")}
         )
 
-        os.remove(video_path)
+        os.remove(filename)
         return jsonify({"status": "success", "keypoints": output}), 200
 
     except Exception as e:
-        os.remove(video_path)
+        os.remove(filename)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
